@@ -164,16 +164,25 @@ months = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
 #     except:
 #         print(f)
 
-headers = ['reasons', 'time_occured', 'time_reported', 'comments', 'incident_address', 'lat', 'long']
+# headers = ['reasons', 'time_occured', 'time_reported', 'comments', 'incident_address', 'lat', 'long']
 
-pd.DataFrame(columns=headers).to_csv('whole.csv', index=False)
+# pd.DataFrame(columns=headers).to_csv('whole.csv', index=False)
 
-for f in tqdm(os.listdir('scraped_months/'), desc='Iterating thru months'):
+# for f in tqdm(os.listdir('scraped_months/'), desc='Iterating thru months'):
 
-    print(f)
-    x = pd.read_csv(f'scraped_months/{f}', index_col=0)
+#     print(f)
+#     x = pd.read_csv(f'scraped_months/{f}', index_col=0)
 
 
-    print(x.columns)
+#     print(x.columns)
 
-    x.to_csv('whole.csv', mode='a', header=False, index=False)
+#     x.to_csv('whole.csv', mode='a', header=False, index=False)
+
+
+x = pd.read_csv('whole.csv')
+x[['time_started', 'time_ended']] = x['time_occured'].str.split('-', 1, expand=True)
+
+x['time_started'] = pd.to_datetime(x['time_started'])
+x['time_ended'] = pd.to_datetime(x['time_ended'], errors='coerce')
+
+x.to_csv('whole_with_time.csv')
