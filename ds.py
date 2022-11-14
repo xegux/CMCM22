@@ -144,45 +144,89 @@ months_d = {'January': 31, 'February': 29, 'March': 31, 'April': 30, 'May': 31, 
 
 months = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
           'August', 'September', 'October', 'November', 'December']
+def scrape_sheriff_logs():
+    for i in range(2021, 2023):
+        try:
+            for m in tqdm(months):
+                link = f'https://tompkinscountyny.gov/files2/files2/sheriff/Daily-Logs/{m}%201-{months_d[m]}%2C%2020{i % 1000}.pdf'
 
-# for i in range(2021, 2023):
-#     try:
-#         for m in tqdm(months):
-#             link = f'https://tompkinscountyny.gov/files2/files2/sheriff/Daily-Logs/{m}%201-{months_d[m]}%2C%2020{i % 1000}.pdf'
-
-#             response = requests.get(link)
-#             with open(f'uncleaned_files/{m}_{i}.pdf', 'wb') as f:
-#                 f.write(response.content)
-#     except:
-#         pass
-
-
-# for f in tqdm(os.listdir('uncleaned_files/'), desc='Iterating thru months'):
-#     try:
-#         if not Path(f'scraped_months/{f[:-4]}').exists():
-#             save_pdf_to_csv(f'uncleaned_files/{f}', f[:-4], f'scraped_months/{f[:-4]}')
-#     except:
-#         print(f)
-
-# headers = ['reasons', 'time_occured', 'time_reported', 'comments', 'incident_address', 'lat', 'long']
-
-# pd.DataFrame(columns=headers).to_csv('whole.csv', index=False)
-
-# for f in tqdm(os.listdir('scraped_months/'), desc='Iterating thru months'):
-
-#     print(f)
-#     x = pd.read_csv(f'scraped_months/{f}', index_col=0)
+                response = requests.get(link)
+                with open(f'uncleaned_files/{m}_{i}.pdf', 'wb') as f:
+                    f.write(response.content)
+        except:
+            pass
 
 
-#     print(x.columns)
 
-#     x.to_csv('whole.csv', mode='a', header=False, index=False)
+def clean_pdfs():
+    for f in tqdm(os.listdir('uncleaned_files/'), desc='Iterating thru months'):
+        try:
+            if not Path(f'scraped_months/{f[:-4]}').exists():
+                save_pdf_to_csv(f'uncleaned_files/{f}', f[:-4], f'scraped_months/{f[:-4]}')
+        except:
+            print(f)
 
 
-x = pd.read_csv('whole.csv')
-x[['time_started', 'time_ended']] = x['time_occured'].str.split('-', 1, expand=True)
+def save_to_one_csv():
+    headers = ['reasons', 'time_occured', 'time_reported', 'comments', 'incident_address', 'lat', 'long']
 
-x['time_started'] = pd.to_datetime(x['time_started'])
-x['time_ended'] = pd.to_datetime(x['time_ended'], errors='coerce')
+    pd.DataFrame(columns=headers).to_csv('whole.csv', index=False)
 
-x.to_csv('whole_with_time.csv')
+    for f in tqdm(os.listdir('scraped_months/'), desc='Iterating thru months'):
+
+        print(f)
+        x = pd.read_csv(f'scraped_months/{f}', index_col=0)
+
+
+        print(x.columns)
+
+        x.to_csv('whole.csv', mode='a', header=False, index=False)
+
+
+def process_time_started():
+    x = pd.read_csv('whole.csv')
+    x[['time_started', 'time_ended']] = x['time_occured'].str.split('-', 1, expand=True)
+
+    x['time_started'] = pd.to_datetime(x['time_started'])
+    x['time_ended'] = pd.to_datetime(x['time_ended'], errors='coerce')
+
+    x.to_csv('whole_with_time.csv')
+
+
+def accidents_to_csv():
+    accident_df = pd.read_csv('accidents_cleaned.csv')
+
+    lats = []
+    longs= []
+    with tqdm(total=len(accident_df)) as pbar:
+        for ind, row in tqdm(accident_df.iterrows()):
+        
+            loc_to_search = ""
+            if pd.isnull(row['intersection']):
+                loc_to_search = row['road']
+            else:
+                loc_to_search = row['intersection']
+            
+            loc_to_search += ', Tompkins County NY'
+
+            lat, long = loc(loc_to_search)
+
+            lats.append(lat)
+            longs.append(long)
+            pbar.update(1)
+
+    accident_df['lat'] = lats
+    accident_df['long'] = longs
+
+    accident_df.to_csv('accident_with_locations.csv')
+
+x = pd.read_csv('accident_with_locations.csv')
+x.drop(x.columns[[0, 1]], axis=1, inplace=True)
+# print(x.head())
+
+x['seconds_since'] = pd.to_datetime(x['Time']).dt.hour * 3600 + pd.to_datetime(x['Time']).dt.minute * 60 + pd.to_datetime(x['Time']).dt.second
+
+x['month'] = pd.to_datetime(x['Prd Date']).dt.month
+
+
+x.to_csv('accidents_seconds_since.csv', index=False)
